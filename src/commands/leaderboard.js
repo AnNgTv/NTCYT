@@ -71,7 +71,7 @@ module.exports = {
             stat = `**${user.voice_joins || 0}** lượt join`;
           } else if (type === 'voice_time') {
             // Chuyển đổi phút sang giây (total_voice_join lưu dưới dạng phút)
-            const totalSeconds = (user.total_voice_join || 0) * 60;
+            const totalSeconds = user.total_voice_join || 0;
             stat = `**${formatMinecraftTime(totalSeconds)}**`;
           }
           return `**#${index + 1}** <@${user.user_id}> - ${stat}`;
