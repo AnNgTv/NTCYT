@@ -251,6 +251,24 @@ one.
   for this. If installing locally on Windows/macOS, make sure you have the
   usual native build toolchain for your OS.
 
+## NTCYT Slash Commands
+
+The bot registers its slash commands globally at startup.
+
+- **General:** /help, /ping, /botinfo, /userinfo, /avatar, /serverinfo
+- **Activity:** /stats, /leaderboard, /top-online
+- **Community:** /poll
+- **Messages:** /embed, /say
+- **Moderation:** /ban, /unban, /kick, /timeout, /untimeout, /purge, /warn, /warnings, /lock, /unlock, /slowmode, /nick
+- **Roles:** /role-add, /role-remove, /role-create, /role-delete
+- **Support:** /ticket-create, /ticket-close
+- **Giveaways:** /giveaway-start, /giveaway-end, /giveaway-reroll
+- **Owner tools:** /manage
+
+### Privileged intents
+
+Enable Server Members Intent, Message Content Intent, and Presence Intent in the Discord Developer Portal. Presence Intent is required for /top-online. The online leaderboard starts collecting data only after the intent is enabled and the bot is running; it does not reconstruct historical online time.
+
 ## License
 
 MIT
