@@ -107,12 +107,26 @@ commands.push({data:new SlashCommandBuilder().setName('ticket-close').setDescrip
 }});
 
 const giveawayDuration=v=>{const m=/^(\d+)(m|h|d)$/.exec(v||'');return m?Number(m[1])*({m:60000,h:3600000,d:86400000}[m[2]]):0;};
-async function pickWinners(i,id){const msg=await i.channel.messages.fetch(id).catch(()=>null);if(!msg)return i.reply({content:'Không tìm thấy tin nhắn giveaway trong kênh này.',ephemeral:true});const r=msg.reactions.cache.get('🎉');if(!r)return i.reply({content:'Không tìm thấy reaction tham gia.',ephemeral:true});const users=await r.users.fetch(),pool=users.filter(u=>!u.bot).map(u=>u);if(!pool.length)return i.reply({content:'Không có người tham gia.',ephemeral:true});const n=Number(msg.embeds[0]?.footer?.text.match(/Winners:(\d+)/)?.[1]||1),w=[];while(pool.length&&w.length<n)w.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);await i.reply('🎉 Người thắng: '+w.map(u=>u.toString()).join(', '));}
+async function pickWinners(i,id,reroll){
+ const msg=await i.channel.messages.fetch(id).catch(()=>null);
+ if(!msg)return i.reply({content:'Không tìm thấy tin nhắn giveaway trong kênh này.',ephemeral:true});
+ const source=msg.embeds[0];if(!source)return i.reply({content:'Tin nhắn không có embed giveaway.',ephemeral:true});
+ const footer=source.footer?.text||'';if(reroll&&!footer.includes('Ended'))return i.reply({content:'Chỉ có thể reroll giveaway đã kết thúc.',ephemeral:true});
+ if(!reroll&&footer.includes('Ended'))return i.reply({content:'Giveaway này đã kết thúc rồi. Dùng giveaway-reroll để chọn lại.',ephemeral:true});
+ const reaction=msg.reactions.cache.get('🎉');if(!reaction)return i.reply({content:'Không tìm thấy reaction tham gia.',ephemeral:true});
+ const users=await reaction.users.fetch(),prior=(footer.match(/WinnerIDs:([0-9,]+)/)||[])[1]||'',excluded=new Set(prior.split(',').filter(Boolean));
+ const pool=users.filter(u=>!u.bot&&!excluded.has(u.id)).map(u=>u);if(!pool.length)return i.reply({content:'Không còn người tham gia hợp lệ để chọn.',ephemeral:true});
+ const n=Number((footer.match(/Winners:(\d+)/)||[])[1]||1),w=[];while(pool.length&&w.length<n)w.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);
+ const ids=w.map(u=>u.id),updated=EmbedBuilder.from(source).setFooter({text:'Ended • Winners:'+n+' • WinnerIDs:'+ids.join(',')});
+ if(!reroll)updated.setTitle('🎉 GIVEAWAY • ĐÃ KẾT THÚC');
+ await msg.edit({embeds:[updated]});
+ await i.reply((reroll?'🔁 Người thắng mới: ':'🎉 Người thắng: ')+w.map(u=>u.toString()).join(', '));
+}
 commands.push({data:mod('giveaway-start','Tạo giveaway',PermissionFlagsBits.ManageGuild).addStringOption(o=>o.setName('prize').setDescription('Phần thưởng').setRequired(true).setMaxLength(200)).addStringOption(o=>o.setName('duration').setDescription('30m, 2h hoặc 1d').setRequired(true)).addIntegerOption(o=>o.setName('winners').setDescription('Số người thắng').setRequired(true).setMinValue(1).setMaxValue(20)),async execute(i){
  const d=giveawayDuration(i.options.getString('duration'));if(!d||d>30*86400000)return i.reply({content:'Thời lượng không hợp lệ, tối đa 30 ngày.',ephemeral:true});const e=new EmbedBuilder().setColor(0xfee75c).setTitle('🎉 GIVEAWAY').setDescription('**Phần thưởng:** '+i.options.getString('prize')+'\n**Kết thúc:** <t:'+Math.floor((Date.now()+d)/1000)+':R>\nReact 🎉 để tham gia.').setFooter({text:'Winners:'+i.options.getInteger('winners')});await i.reply({embeds:[e]});const m=await i.fetchReply();await m.react('🎉');
 }});
-for(const name of ['giveaway-end','giveaway-reroll'])commands.push({data:mod(name,'Chọn người thắng giveaway theo Message ID',PermissionFlagsBits.ManageGuild).addStringOption(o=>o.setName('message_id').setDescription('ID tin nhắn giveaway').setRequired(true)),async execute(i){await pickWinners(i,i.options.getString('message_id'));}});
-
+commands.push({data:mod('giveaway-end','Kết thúc giveaway theo Message ID',PermissionFlagsBits.ManageGuild).addStringOption(o=>o.setName('message_id').setDescription('ID tin nhắn giveaway').setRequired(true)),async execute(i){await pickWinners(i,i.options.getString('message_id'),false);}});
+commands.push({data:mod('giveaway-reroll','Chọn lại người thắng chưa từng thắng',PermissionFlagsBits.ManageGuild).addStringOption(o=>o.setName('message_id').setDescription('ID tin nhắn giveaway').setRequired(true)),async execute(i){await pickWinners(i,i.options.getString('message_id'),true);}});
 commands.push({data:new SlashCommandBuilder().setName('top-online').setDescription('Bảng xếp hạng thời gian online được bot ghi nhận').setDMPermission(false),async execute(i){
  const p=getPool();await p.query('CREATE TABLE IF NOT EXISTS presence_stats(guild_id TEXT,user_id TEXT,online_seconds BIGINT DEFAULT 0,updated_at TIMESTAMPTZ DEFAULT NOW(),PRIMARY KEY(guild_id,user_id))');const r=await p.query('SELECT user_id,(online_seconds+CASE WHEN online_since IS NOT NULL THEN GREATEST(0,EXTRACT(EPOCH FROM (NOW()-online_since))::BIGINT) ELSE 0 END) AS total_seconds FROM presence_stats WHERE guild_id=$1 ORDER BY total_seconds DESC LIMIT 10',[i.guildId]);const d=r.rows.map((x,n)=>'**#'+(n+1)+'** <@'+x.user_id+'> • '+Math.floor(Number(x.total_seconds)/3600)+' giờ').join('\n')||'Chưa có dữ liệu. Bật Server Members + Presence Intent để bắt đầu ghi nhận.';await i.reply({embeds:[new EmbedBuilder().setTitle('🟢 Top online').setDescription(d).setColor(0x57f287)]});
 }});
