@@ -117,7 +117,7 @@ async function pickWinners(i,id,reroll){
  const users=await reaction.users.fetch(),prior=(footer.match(/WinnerIDs:([0-9,]+)/)||[])[1]||'',excluded=new Set(prior.split(',').filter(Boolean));
  const pool=users.filter(u=>!u.bot&&!excluded.has(u.id)).map(u=>u);if(!pool.length)return i.reply({content:'Không còn người tham gia hợp lệ để chọn.',ephemeral:true});
  const n=Number((footer.match(/Winners:(\d+)/)||[])[1]||1),w=[];while(pool.length&&w.length<n)w.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);
- const ids=w.map(u=>u.id),updated=EmbedBuilder.from(source).setFooter({text:'Ended • Winners:'+n+' • WinnerIDs:'+ids.join(',')});
+ const ids=[...excluded,...w.map(u=>u.id)],updated=EmbedBuilder.from(source).setFooter({text:'Ended • Winners:'+n+' • WinnerIDs:'+ids.join(',')});
  if(!reroll)updated.setTitle('🎉 GIVEAWAY • ĐÃ KẾT THÚC');
  await msg.edit({embeds:[updated]});
  await i.reply((reroll?'🔁 Người thắng mới: ':'🎉 Người thắng: ')+w.map(u=>u.toString()).join(', '));
