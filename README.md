@@ -276,3 +276,7 @@ MIT
 # Voice-chat
 # Voice-chat
 # Voice-chat
+
+## Community & Support
+
+Need help, report a bug, or discuss this project? Join the [AnNgTv Community on Discord](https://discord.gg/5KvDH4UJcZ).
